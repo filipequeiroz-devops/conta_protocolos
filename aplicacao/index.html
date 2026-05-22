@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Protocolos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            width: 320px;
+        }
+
+        .arrow-btn {
+            background: none;
+            border: none;
+            font-size: 3rem;
+            color: #0070f3;
+            cursor: pointer;
+            transition: transform 0.1s, color 0.2s;
+            user-select: none;
+        }
+
+        .arrow-btn:hover {
+            color: #0051b3;
+        }
+
+        .arrow-btn:active {
+            transform: scale(0.9);
+        }
+
+        #counter {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+            line-height: 1;
+        }
+
+        .btn-save {
+            margin-top: 30px;
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn-save:hover {
+            background-color: #0051b3;
+        }
+
+        .btn-save:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #status-message {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button class="arrow-btn" id="btn-up" aria-label="Aumentar">▲</button>
+        
+        <div id="counter">0</div>
+        
+        <button class="arrow-btn" id="btn-down" aria-label="Diminuir">▼</button>
+        
+        <button class="btn-save" id="btn-save">Salvar</button>
+        
+        <div id="status-message"></div>
+    </div>
+
+    <script>
+    // URL do seu API Gateway integrada
+    const API_GATEWAY_URL = "https://igc0awdc4a.execute-api.us-east-1.amazonaws.com/production/protocolos";
+
+    let count = 0;
+
+    const counterDisplay = document.getElementById('counter');
+    const btnUp = document.getElementById('btn-up');
+    const btnDown = document.getElementById('btn-down');
+    const btnSave = document.getElementById('btn-save');
+    const statusMessage = document.getElementById('status-message');
+
+    // Helper para retornar a data de hoje no formato YYYY-MM-DD local
+    function getDataHoje() {
+        return new Date().toLocaleDateString('sv-SE');
+    }
+
+    // Função para atualizar a tela
+    function updateDisplay() {
+        counterDisplay.innerText = count;
+    }
+
+    // Busca o valor de hoje no banco assim que a página abre
+    async function buscarProgressoDeHoje() {
+        statusMessage.style.color = "#666";
+        statusMessage.innerText = "Carregando dados de hoje...";
+        
+        try {
+            const response = await fetch(API_GATEWAY_URL, { method: 'GET' });
+            
+            if (response.ok) {
+                const dados = await response.json();
+                const dataHoje = getDataHoje();
+                
+                // Procura na lista se já existe um registro com a data de hoje
+                const registroHoje = dados.find(item => item.data === dataHoje);
+                
+                if (registroHoje) {
+                    // Atualiza o contador com o valor salvo no DynamoDB
+                    count = parseInt(registroHoje.numero) || 0;
+                    updateDisplay();
+                    statusMessage.style.color = "green";
+                    statusMessage.innerText = `Progresso de hoje carregado (${count} salvos).`;
+                } else {
+                    statusMessage.style.color = "#666";
+                    statusMessage.innerText = "Nenhum registro hoje. Começando do 0.";
+                }
+            } else {
+                throw new Error("Erro ao buscar histórico");
+            }
+        } catch (error) {
+            console.error("Erro ao buscar dados:", error);
+            statusMessage.style.color = "red";
+            statusMessage.innerText = "Não foi possível carregar o histórico.";
+        }
+    }
+
+    // Evento de subir (+1)
+    btnUp.addEventListener('click', () => {
+        count++;
+        updateDisplay();
+    });
+
+    // Evento de descer (-1) com limite em 0
+    btnDown.addEventListener('click', () => {
+        if (count > 0) {
+            count--;
+            updateDisplay();
+        }
+    });
+
+    // Evento de Salvar e enviar para a API
+    btnSave.addEventListener('click', async () => {
+        const payload = {
+            numero: count,
+            data: getDataHoje()
+        };
+
+        console.log("Enviando dados para a Lambda:", payload);
+        
+        statusMessage.style.color = "#666";
+        statusMessage.innerText = "Enviando...";
+        btnSave.disabled = true;
+
+        try {
+            const response = await fetch(API_GATEWAY_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                statusMessage.style.color = "green";
+                statusMessage.innerText = "Dados salvos com sucesso!";
+            } else {
+                throw new Error("Erro na resposta do servidor");
+            }
+        } catch (error) {
+            console.error("Erro ao enviar:", error);
+            statusMessage.style.color = "red";
+            statusMessage.innerText = "Erro ao salvar os dados.";
+        } finally {
+            btnSave.disabled = false;
+        }
+    });
+
+    // Inicializa a busca assim que a página carrega
+    buscarProgressoDeHoje();
+</script>
+</body>
+</html>
