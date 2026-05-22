@@ -83,9 +83,43 @@
             font-size: 0.9rem;
             min-height: 20px;
         }
+
+        .navbar {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            background-color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .navbar a, .navbar-btn {
+            color: #0070f3;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            background: none;
+            border: 1px solid #0070f3;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .navbar a:hover, .navbar-btn:hover {
+            background-color: #0070f3;
+            color: white;
+        }
     </style>
 </head>
 <body>
+
+    <nav class="navbar">
+        <button class="navbar-btn" onclick="history.back()">← Voltar</button>
+        <a href="performance.html">Performance →</a>
+    </nav>
 
     <div class="container">
         <button class="arrow-btn" id="btn-up" aria-label="Aumentar">▲</button>

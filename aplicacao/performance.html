@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance - Contador de Protocolos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            padding-top: 80px;
+            padding-bottom: 40px;
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background-color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .navbar a {
+            color: #0070f3;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            background: none;
+            border: 1px solid #0070f3;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .navbar a:hover {
+            background-color: #0070f3;
+            color: white;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .filter-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-section label {
+            font-weight: 600;
+            color: #444;
+        }
+
+        .filter-section input[type="date"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .filter-section input[type="date"]:focus {
+            border-color: #0070f3;
+        }
+
+        .btn-action {
+            background-color: #f1f3f5;
+            color: #333;
+            border: 1px solid #dee2e6;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-action:hover {
+            background-color: #e9ecef;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 0 1px #eaedf1;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #eaedf1;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #444;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #fcfcfc;
+        }
+
+        .summary {
+            text-align: right;
+            padding: 15px;
+            background-color: #f0f7ff;
+            border-radius: 8px;
+            color: #004494;
+            margin-top: 20px;
+        }
+
+        .status-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .error {
+            color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="index.html">← Voltar</a>
+    </nav>
+
+    <div class="container">
+        <h1>Dashboard de Performance</h1>
+
+        <div class="filter-section">
+            <label for="date-filter">Filtrar por data:</label>
+            <input type="date" id="date-filter" aria-label="Selecione uma data para filtrar">
+            <button class="btn-action" id="btn-clear-filter">Limpar Filtro</button>
+        </div>
+
+        <div id="loading" class="status-message">Buscando dados no servidor...</div>
+        <div id="error-message" class="status-message error" style="display: none;"></div>
+
+        <table id="data-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Protocolos Finalizados</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <!-- Conteúdo gerado via JavaScript -->
+            </tbody>
+        </table>
+
+        <div class="summary" id="summary-section" style="display: none;">
+            <h2>Total no período exibido: <span id="total-count">0</span></h2>
+        </div>
+    </div>
+
+    <script>
+        const API_GATEWAY_URL = "https://igc0awdc4a.execute-api.us-east-1.amazonaws.com/production/protocolos";
+        let allData = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchData();
+
+            // Event listener para quando o usuário escolhe uma data
+            document.getElementById('date-filter').addEventListener('change', filterData);
+
+            // Event listener para limpar o filtro
+            document.getElementById('btn-clear-filter').addEventListener('click', () => {
+                document.getElementById('date-filter').value = '';
+                renderTable(allData);
+            });
+        });
+
+        async function fetchData() {
+            try {
+                const response = await fetch(API_GATEWAY_URL, { method: 'GET' });
+
+                if (!response.ok) {
+                    throw new Error("Erro ao buscar histórico");
+                }
+
+                const rawData = await response.json();
+
+                // Ordenar por data da mais recente para a mais antiga
+                allData = rawData.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('data-table').style.display = 'table';
+                document.getElementById('summary-section').style.display = 'block';
+
+                renderTable(allData);
+            } catch (error) {
+                console.error("Erro ao carregar dados:", error);
+                document.getElementById('loading').style.display = 'none';
+                const errorEl = document.getElementById('error-message');
+                errorEl.style.display = 'block';
+                errorEl.innerText = "Falha ao carregar os dados. Verifique a conexão.";
+            }
+        }
+
+        function filterData() {
+            const selectedDate = document.getElementById('date-filter').value;
+
+            if (!selectedDate) {
+                renderTable(allData);
+                return;
+            }
+
+            // Filtra o array pelo dia exato escolhido no formato YYYY-MM-DD
+            const filtered = allData.filter(item => item.data === selectedDate);
+            renderTable(filtered);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            let total = 0;
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="padding: 30px; color: #888;">Nenhum registro encontrado para este filtro.</td></tr>';
+                document.getElementById('total-count').innerText = "0";
+                return;
+            }
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+
+                // Formata de YYYY-MM-DD para DD/MM/YYYY para exibição
+                const dateParts = item.data.split('-');
+                let displayDate = item.data;
+                if (dateParts.length === 3) {
+                    displayDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+                }
+
+                const quantity = parseInt(item.numero) || 0;
+                total += quantity;
+
+                tr.innerHTML = `
+                    <td>${displayDate}</td>
+                    <td><strong>${quantity}</strong></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('total-count').innerText = total;
+        }
+    </script>
+</body>
+</html>
