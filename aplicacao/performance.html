@@ -79,16 +79,23 @@
             flex-wrap: wrap;
         }
 
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         .filter-section label {
             font-weight: 600;
             color: #444;
+            font-size: 0.9rem;
         }
 
         .filter-section input[type="date"] {
-            padding: 10px;
+            padding: 8px 10px;
             border: 1px solid #ddd;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             outline: none;
             transition: border-color 0.2s;
         }
@@ -173,9 +180,16 @@
         <h1>Dashboard de Performance</h1>
 
         <div class="filter-section">
-            <label for="date-filter">Filtrar por data:</label>
-            <input type="date" id="date-filter" aria-label="Selecione uma data para filtrar">
-            <button class="btn-action" id="btn-clear-filter">Limpar Filtro</button>
+            <div class="filter-group">
+                <label for="date-start">De:</label>
+                <input type="date" id="date-start" aria-label="Data inicial">
+            </div>
+            <div class="filter-group">
+                <label for="date-end">Até:</label>
+                <input type="date" id="date-end" aria-label="Data final">
+            </div>
+            <button class="btn-action" id="btn-filter">Filtrar</button>
+            <button class="btn-action" id="btn-clear-filter">Limpar</button>
         </div>
 
         <div id="loading" class="status-message">Buscando dados no servidor...</div>
@@ -205,12 +219,13 @@
         document.addEventListener("DOMContentLoaded", () => {
             fetchData();
 
-            // Event listener para quando o usuário escolhe uma data
-            document.getElementById('date-filter').addEventListener('change', filterData);
+            // Event listener para filtrar
+            document.getElementById('btn-filter').addEventListener('click', filterData);
 
             // Event listener para limpar o filtro
             document.getElementById('btn-clear-filter').addEventListener('click', () => {
-                document.getElementById('date-filter').value = '';
+                document.getElementById('date-start').value = '';
+                document.getElementById('date-end').value = '';
                 renderTable(allData);
             });
         });
@@ -243,15 +258,37 @@
         }
 
         function filterData() {
-            const selectedDate = document.getElementById('date-filter').value;
+            const startDateStr = document.getElementById('date-start').value;
+            const endDateStr = document.getElementById('date-end').value;
 
-            if (!selectedDate) {
+            if (!startDateStr && !endDateStr) {
                 renderTable(allData);
                 return;
             }
 
-            // Filtra o array pelo dia exato escolhido no formato YYYY-MM-DD
-            const filtered = allData.filter(item => item.data === selectedDate);
+            const filtered = allData.filter(item => {
+                const itemDate = new Date(item.data);
+                itemDate.setHours(0, 0, 0, 0); // Zera hora para comparação justa
+
+                let isValid = true;
+
+                if (startDateStr) {
+                    const startDate = new Date(startDateStr);
+                    startDate.setHours(0, 0, 0, 0);
+                    // O item tem que ser igual ou depois da data inicial
+                    isValid = isValid && itemDate >= startDate;
+                }
+
+                if (endDateStr) {
+                    const endDate = new Date(endDateStr);
+                    endDate.setHours(23, 59, 59, 999); // Final do dia
+                    // O item tem que ser antes ou igual a data final
+                    isValid = isValid && itemDate <= endDate;
+                }
+
+                return isValid;
+            });
+
             renderTable(filtered);
         }
 
